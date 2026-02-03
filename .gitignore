@@ -3,3 +3,4 @@ dist/*
 node_modules/*
 vscode-extension/node_modules/*
 vscode-extension/package-lock.json
+vscode-extension/testng-runner-vscode-0.1.1.vsix
