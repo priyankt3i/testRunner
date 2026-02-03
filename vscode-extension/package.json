@@ -1,0 +1,164 @@
+{
+  "name": "testng-runner-vscode",
+  "displayName": "TestNG Runner",
+  "description": "Run TestNG suites from VS Code with a dedicated sidebar.",
+  "version": "0.1.1",
+  "icon": "media/test.png",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Testing",
+    "Other"
+  ],
+  "activationEvents": [
+    "onView:testngRunner.suites",
+    "onCommand:testngRunner.refreshSuites",
+    "onCommand:testngRunner.runSuite",
+    "onCommand:testngRunner.stopSuite",
+    "onCommand:testngRunner.runAllSuites",
+    "onCommand:testngRunner.openSuiteLog",
+    "onCommand:testngRunner.openSettings"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "testngRunner",
+          "title": "TestNG Runner",
+          "icon": "media/testng.svg"
+        }
+      ]
+    },
+    "views": {
+      "testngRunner": [
+        {
+          "id": "testngRunner.suites",
+          "name": "Suites"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "testngRunner.refreshSuites",
+        "title": "Refresh TestNG Suites",
+        "icon": {
+          "light": "media/refresh.svg",
+          "dark": "media/refresh.svg"
+        }
+      },
+      {
+        "command": "testngRunner.runSuite",
+        "title": "Run TestNG Suite",
+        "icon": {
+          "light": "media/run.svg",
+          "dark": "media/run.svg"
+        }
+      },
+      {
+        "command": "testngRunner.stopSuite",
+        "title": "Stop TestNG Suite",
+        "icon": {
+          "light": "media/stop.svg",
+          "dark": "media/stop.svg"
+        }
+      },
+      {
+        "command": "testngRunner.runAllSuites",
+        "title": "Run All TestNG Suites",
+        "icon": {
+          "light": "media/run-all.svg",
+          "dark": "media/run-all.svg"
+        }
+      },
+      {
+        "command": "testngRunner.openSuiteLog",
+        "title": "Open TestNG Suite Log",
+        "icon": {
+          "light": "media/log.svg",
+          "dark": "media/log.svg"
+        }
+      },
+      {
+        "command": "testngRunner.openSettings",
+        "title": "Configure TestNG Runner Settings",
+        "icon": {
+          "light": "media/settings.svg",
+          "dark": "media/settings.svg"
+        }
+      },
+      {
+        "command": "testngRunner.debugScan",
+        "title": "TestNG Runner: Debug Scan"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "testngRunner.refreshSuites",
+          "when": "view == testngRunner.suites",
+          "group": "navigation"
+        },
+        {
+          "command": "testngRunner.runAllSuites",
+          "when": "view == testngRunner.suites",
+          "group": "navigation"
+        },
+        {
+          "command": "testngRunner.openSettings",
+          "when": "view == testngRunner.suites",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "testngRunner.runSuite",
+          "when": "view == testngRunner.suites",
+          "group": "inline"
+        },
+        {
+          "command": "testngRunner.stopSuite",
+          "when": "view == testngRunner.suites",
+          "group": "inline"
+        },
+        {
+          "command": "testngRunner.openSuiteLog",
+          "when": "view == testngRunner.suites",
+          "group": "inline"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "TestNG Runner",
+      "properties": {
+        "testngRunner.mavenHome": {
+          "type": "string",
+          "default": "",
+          "description": "Path to Maven installation. If empty, uses mvn from PATH."
+        },
+        "testngRunner.javaHome": {
+          "type": "string",
+          "default": "",
+          "description": "Path to JDK installation. If empty, uses JAVA_HOME or system default."
+        }
+      }
+    }
+  },
+  "repository": {
+  "type": "git",
+  "url": "https://github.com/<your-org>/<your-repo>"
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -p . -w",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0",
+    "@vscode/vsce": "^2.22.0"
+  }
+}
