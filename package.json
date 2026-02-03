@@ -1,0 +1,33 @@
+{
+  "name": "testng-gui-runner",
+  "version": "1.0.0",
+  "description": "A clean Windows desktop GUI for running TestNG suites without an IDE.",
+  "main": "main.js",
+  "author": "Your Team",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.example.testnggui",
+    "productName": "TestNG Runner",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "artifactName": "TestNG-Runner-${version}.exe"
+    }
+  }
+}

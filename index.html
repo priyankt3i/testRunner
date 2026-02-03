@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TestNG Runner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+      html,
+      body {
+        font-family: "Manrope", sans-serif;
+        overflow-x: hidden;
+      }
+      .glass-card {
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+      }
+      .tab-active {
+        color: #111827;
+        border-bottom: 2px solid #111827;
+      }
+      .suite-card {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        border-radius: 16px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.04);
+      }
+      .suite-info {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .suite-title {
+        font-weight: 600;
+        color: #0f172a;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .suite-path {
+        font-size: 12px;
+        color: #64748b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .suite-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        min-width: 0;
+      }
+      .suite-group {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .suite-group-title {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #64748b;
+        padding-left: 4px;
+      }
+      .suite-group-items {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .status {
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .status.idle {
+        background: #f1f5f9;
+        color: #475569;
+      }
+      .status.running {
+        background: #dcfce7;
+        color: #166534;
+      }
+      .status.completed {
+        background: #e0f2fe;
+        color: #0369a1;
+      }
+      .status.failed {
+        background: #fee2e2;
+        color: #b91c1c;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 600;
+        border: 1px solid transparent;
+        transition: all 0.15s ease;
+      }
+      .btn.run {
+        background: #16a34a;
+        color: #ffffff;
+      }
+      .btn.run:hover {
+        background: #15803d;
+      }
+      .btn.stop {
+        background: #ef4444;
+        color: #ffffff;
+      }
+      .btn.stop:hover {
+        background: #dc2626;
+      }
+      .btn.secondary {
+        background: #ffffff;
+        border-color: #e2e8f0;
+        color: #111827;
+      }
+      .btn.secondary:hover {
+        border-color: #cbd5f5;
+      }
+      .empty-card {
+        padding: 24px;
+        border-radius: 16px;
+        border: 1px dashed #cbd5f5;
+        background: #ffffff;
+        text-align: center;
+      }
+      @media (max-width: 900px) {
+        .suite-card {
+          grid-template-columns: 1fr;
+          align-items: flex-start;
+        }
+        .suite-actions {
+          justify-content: flex-start;
+        }
+      }
+      @media (max-width: 640px) {
+        .btn {
+          padding: 7px 12px;
+          font-size: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-gradient-to-br from-white via-slate-50 to-slate-100 text-slate-800">
+    <div class="min-h-screen px-4 sm:px-6 lg:px-8 py-6">
+      <header class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div class="text-2xl font-semibold text-slate-900">TestNG Runner</div>
+          <div class="text-sm text-slate-500">Run automation suites without an IDE.</div>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="text-xs text-slate-500 max-w-[420px] truncate">
+            Root: <span id="rootPath" class="font-medium text-slate-700">Not selected</span>
+          </div>
+          <button id="selectRoot" class="btn secondary">
+            <i data-lucide="folder"></i>
+            Select Root
+          </button>
+          <button id="refreshRoot" class="btn secondary">
+            <i data-lucide="rotate-cw"></i>
+            Refresh
+          </button>
+        </div>
+      </header>
+
+      <section class="mt-6 grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-6">
+        <div class="glass-card rounded-3xl p-6">
+          <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+            <div class="flex gap-6 text-sm font-semibold text-slate-400">
+              <button id="tabSuites" class="tab-active">Suites</button>
+              <button id="tabSettings">Settings</button>
+            </div>
+          </div>
+
+          <div id="paneSuites" class="mt-5 space-y-4">
+            <div class="flex items-center gap-3">
+              <div class="flex-1 relative">
+                <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
+                  <i data-lucide="search"></i>
+                </span>
+                <input
+                  id="suiteSearch"
+                  type="text"
+                  placeholder="Search suites (Smoke, Regression, Login)"
+                  class="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-sm focus:border-slate-400 focus:outline-none"
+                />
+              </div>
+            </div>
+            <div id="suiteList" class="space-y-4"></div>
+          </div>
+
+          <div id="paneSettings" class="mt-5 hidden">
+            <div class="space-y-4">
+              <div>
+                <label class="text-sm font-semibold text-slate-700">Maven Home</label>
+                <input
+                  id="mavenHome"
+                  type="text"
+                  placeholder="C:\\Program Files\\Apache\\maven"
+                  class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm focus:border-slate-400 focus:outline-none"
+                />
+                <div class="mt-2 text-xs text-slate-500">
+                  Point to the Maven install folder if mvn is not in PATH.
+                </div>
+              </div>
+              <div>
+                <label class="text-sm font-semibold text-slate-700">Java Home</label>
+                <input
+                  id="javaHome"
+                  type="text"
+                  placeholder="C:\\Program Files\\Java\\jdk-17"
+                  class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm focus:border-slate-400 focus:outline-none"
+                />
+                <div class="mt-2 text-xs text-slate-500">
+                  Optional: only needed if Java is not already configured.
+                </div>
+              </div>
+              <button id="saveSettings" class="btn secondary w-full justify-center">
+                <i data-lucide="save"></i>
+                Save Settings
+              </button>
+              <div class="rounded-2xl border border-slate-200 bg-white p-4">
+                <div class="text-sm font-semibold text-slate-800">Help</div>
+                <div class="mt-2 text-xs text-slate-500">
+                  Kumar Priyank
+                </div>
+                <div class="mt-1 text-xs text-slate-500">
+                  Email:
+                  <a class="text-slate-700 hover:text-slate-900" href="mailto:kumarpriyank@outlook.com">
+                    kumarpriyank@outlook.com
+                  </a>
+                </div>
+                <div class="mt-1 text-xs text-slate-500">
+                  GitHub:
+                  <a class="text-slate-700 hover:text-slate-900" href="https://github.com/priyankt3i">
+                    github.com/priyankt3i
+                  </a>
+                </div>
+                <div class="mt-1 text-xs text-slate-500">
+                  LinkedIn:
+                  <a class="text-slate-700 hover:text-slate-900" href="https://www.linkedin.com/in/priyankt3i">
+                    linkedin.com/in/priyankt3i
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-card rounded-3xl p-6 flex flex-col">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-lg font-semibold text-slate-900">Live Console</div>
+              <div class="text-xs text-slate-500">Real-time Maven output for the selected run.</div>
+            </div>
+            <button id="clearConsole" class="btn secondary">
+              <i data-lucide="trash-2"></i>
+              Clear
+            </button>
+          </div>
+          <div
+            class="mt-4 flex-1 rounded-2xl bg-slate-900/95 p-4 text-xs text-slate-200 shadow-inner"
+          >
+            <pre id="consoleOutput" class="h-full overflow-y-auto whitespace-pre-wrap"></pre>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script src="renderer.js"></script>
+    <script>
+      if (window.lucide) window.lucide.createIcons();
+    </script>
+  </body>
+</html>
