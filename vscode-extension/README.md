@@ -2,6 +2,10 @@
 
 Run TestNG suites directly from VS Code with a dedicated sidebar.
 
+## Interactive AI Documentation
+
+[NotebookLM link](https://notebooklm.google.com/notebook/020a3e6a-ed2f-4563-8090-b7f049202241)
+
 ## Features
 - Scan workspace for any XML that contains the TestNG `DOCTYPE` tag.
 - Run or stop suites from the sidebar.
