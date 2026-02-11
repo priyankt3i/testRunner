@@ -138,4 +138,37 @@ The files are stored in VS Code's extension storage directory.
 You can open them by right-clicking a suite and choosing **Open TestNG Suite Log**.
 
 
-## For Debug mode you need Extension Pack for Java from Microsoft (VSCode extention installed)
+## Debug Prerequisite
+For debug mode, install **Extension Pack for Java** by Microsoft in VS Code.
+
+## Change Log
+Keep this section updated whenever the extension changes (features added, changed, fixed, or removed).
+
+### Unreleased
+#### Added
+- Debug suite command/button in the sidebar context menu (`Debug TestNG Suite`).
+- New setting: `testngRunner.debugPort` to control debugger attach port.
+- Debug mode support for breakpoints by starting Surefire with JDWP `suspend=y`.
+
+#### Changed
+- Debug run now waits for debugger readiness before attach, to improve reliability.
+
+#### Fixed
+- Reduced debug attach handshake timeout issues by delaying attach until JDWP is available.
+- Added a debug-port-in-use check before starting debug mode.
+
+#### Removed
+- None.
+
+### 0.1.1
+#### Added
+- Initial suite discovery, run/stop, run-all, per-suite logs, settings panel, and test category support.
+
+#### Changed
+- None.
+
+#### Fixed
+- None.
+
+#### Removed
+- None.
