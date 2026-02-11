@@ -5,6 +5,7 @@ Run TestNG suites directly from VS Code with a dedicated sidebar.
 ## Features
 - Scan workspace for any XML that contains the TestNG `DOCTYPE` tag.
 - Run or stop suites from the sidebar.
+- Debug suites with breakpoints from the sidebar.
 - Stream Maven output to a dedicated Output channel.
 - Run all suites.
 - Persist last run status (time and exit code).
@@ -13,6 +14,11 @@ Run TestNG suites directly from VS Code with a dedicated sidebar.
 ## Settings
 - `testngRunner.mavenHome`
 - `testngRunner.javaHome`
+- `testngRunner.testCategoryMode` (prompt, value, all)
+- `testngRunner.testCategory`
+- `testngRunner.headless` (default, true, false)
+- `testngRunner.mavenArgs`
+- `testngRunner.debugPort` (default: 5005)
 
 ## Quick Overview (What You Will Do)
 1. Open the extension folder in VS Code.
@@ -68,12 +74,21 @@ In the TestNG Runner list:
 - Click the **play** icon next to a suite, or
 - Right-click a suite and choose **Run TestNG Suite**.
 
+If `testngRunner.testCategoryMode` is set to `prompt`, you will be asked to pick a Test Category before running.
+
 ### 8) See the Output
 Open the Output panel:
 - `View` -> `Output`
 - Choose **TestNG Runner** from the dropdown.
 
 You will see Maven logs and test output here.
+
+### 8b) Debug a Suite (Breakpoints)
+In the TestNG Runner list:
+- Click the **debug** icon next to a suite, or
+- Right-click a suite and choose **Debug TestNG Suite**.
+
+This runs Maven with Surefire in JDWP suspend mode and auto-attaches VS Code's Java debugger on `testngRunner.debugPort`. Because the JVM starts with `suspend=y`, execution waits for the debugger, so breakpoints can pause the test run.
 
 ### 9) Stop a Running Suite
 Click the **stop** icon next to the running suite.
@@ -87,6 +102,14 @@ In the **Extension Development Host** window:
 - Fill in:
   - **Maven Home** (example: `C:\Program Files\Apache\maven`)
   - **Java Home** (example: `C:\Program Files\Java\jdk-17`)
+
+## Test Category and Headless Controls
+- Use `testngRunner.headless` to force `-Dheadless=true|false` or leave default.
+- Use `testngRunner.testCategoryMode`:
+  - `prompt`: pick a Test Category from detected `@Test(groups=...)` values each run.
+  - `value`: always use the saved `testngRunner.testCategory`.
+  - `all`: run all tests without passing `-DtestCategory`.
+- Use the command **TestNG Runner: Select Test Category** to pick and save a category from your codebase.
 
 ## Troubleshooting
 ### No suites found
@@ -113,3 +136,6 @@ Use `npm run watch` if you are actively changing the extension code.
 Each suite writes to its own log file.
 The files are stored in VS Code's extension storage directory.
 You can open them by right-clicking a suite and choosing **Open TestNG Suite Log**.
+
+
+## For Debug mode you need Extension Pack for Java from Microsoft (VSCode extention installed)

@@ -16,10 +16,12 @@
     "onView:testngRunner.suites",
     "onCommand:testngRunner.refreshSuites",
     "onCommand:testngRunner.runSuite",
+    "onCommand:testngRunner.debugSuite",
     "onCommand:testngRunner.stopSuite",
     "onCommand:testngRunner.runAllSuites",
     "onCommand:testngRunner.openSuiteLog",
-    "onCommand:testngRunner.openSettings"
+    "onCommand:testngRunner.openSettings",
+    "onCommand:testngRunner.selectTestCategory"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -58,6 +60,14 @@
         }
       },
       {
+        "command": "testngRunner.debugSuite",
+        "title": "Debug TestNG Suite",
+        "icon": {
+          "light": "media/debug.svg",
+          "dark": "media/debug.svg"
+        }
+      },
+      {
         "command": "testngRunner.stopSuite",
         "title": "Stop TestNG Suite",
         "icon": {
@@ -92,6 +102,10 @@
       {
         "command": "testngRunner.debugScan",
         "title": "TestNG Runner: Debug Scan"
+      },
+      {
+        "command": "testngRunner.selectTestCategory",
+        "title": "TestNG Runner: Select Test Category"
       }
     ],
     "menus": {
@@ -110,11 +124,21 @@
           "command": "testngRunner.openSettings",
           "when": "view == testngRunner.suites",
           "group": "navigation"
+        },
+        {
+          "command": "testngRunner.selectTestCategory",
+          "when": "view == testngRunner.suites",
+          "group": "navigation"
         }
       ],
       "view/item/context": [
         {
           "command": "testngRunner.runSuite",
+          "when": "view == testngRunner.suites",
+          "group": "inline"
+        },
+        {
+          "command": "testngRunner.debugSuite",
           "when": "view == testngRunner.suites",
           "group": "inline"
         },
@@ -142,6 +166,54 @@
           "type": "string",
           "default": "",
           "description": "Path to JDK installation. If empty, uses JAVA_HOME or system default."
+        },
+        "testngRunner.testCategoryMode": {
+          "type": "string",
+          "default": "prompt",
+          "enum": [
+            "prompt",
+            "value",
+            "all"
+          ],
+          "enumDescriptions": [
+            "Ask which TestNG group to run each time.",
+            "Always use the saved Test Category value.",
+            "Run all tests (do not pass -DtestCategory)."
+          ],
+          "description": "How to choose the Test Category passed to Maven."
+        },
+        "testngRunner.testCategory": {
+          "type": "string",
+          "default": "",
+          "description": "Saved Test Category group name (used when mode is 'value')."
+        },
+        "testngRunner.headless": {
+          "type": "string",
+          "default": "default",
+          "enum": [
+            "default",
+            "true",
+            "false"
+          ],
+          "enumDescriptions": [
+            "Do not pass -Dheadless (framework default).",
+            "Pass -Dheadless=true.",
+            "Pass -Dheadless=false."
+          ],
+          "description": "Headless mode override for UI tests."
+        },
+        "testngRunner.mavenArgs": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Additional Maven args to append (e.g., -Dfoo=bar)."
+        },
+        "testngRunner.debugPort": {
+          "type": "number",
+          "default": 5005,
+          "description": "Port used for Java debugger attach when running 'Debug TestNG Suite'."
         }
       }
     }
