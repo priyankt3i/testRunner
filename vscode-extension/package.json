@@ -4,7 +4,7 @@
   "description": "Run TestNG suites from VS Code with a dedicated sidebar.",
   "version": "0.1.1",
   "icon": "media/test.png",
-  "publisher": "local",
+  "publisher": "KumarPriyank",
   "engines": {
     "vscode": "^1.85.0"
   },
