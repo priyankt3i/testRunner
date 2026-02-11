@@ -31,7 +31,7 @@ Run TestNG suites directly from VS Code with a dedicated sidebar.
 ### 1) Open the Extension Folder
 You need to open the `vscode-extension` folder by itself.
 - In VS Code: `File` -> `Open Folder...`
-- Select: `c:\Users\KPriyank\VSCode\testRunner\vscode-extension`
+- Select: `c:\Users\<userpath>\vscode-extension`
 
 After this, the Explorer should show files like `package.json`, `src/extension.ts`, and `media/testng.svg`.
 
