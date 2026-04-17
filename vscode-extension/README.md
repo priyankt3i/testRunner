@@ -15,105 +15,93 @@ Run TestNG suites directly from VS Code with a dedicated sidebar.
 - Persist last run status (time and exit code).
 - Per-suite log files.
 
-## Settings
+## How To Use In VS Code
+### 1) Install the extension
+Install the packaged `.vsix` in VS Code:
+- Open `Extensions`
+- Click the `...` menu
+- Select `Install from VSIX...`
+- Choose `testng-runner-vscode-0.1.1.vsix`
+
+### 2) Open your Java/TestNG project
+Open the project that contains:
+- a `pom.xml`
+- one or more TestNG suite XML files
+
+The extension only shows XML files that contain the TestNG `DOCTYPE` declaration, for example:
+
+```xml
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+```
+
+### 3) Open the TestNG Runner view
+In the Activity Bar, click **TestNG Runner**.
+
+The sidebar shows TestNG suite files grouped by workspace folder and directory. If a suite has been run before, its last run time and exit code appear next to it.
+
+### 4) Configure Java and Maven if needed
+If `mvn` and `java` are already available on your system `PATH`, you can skip this step.
+
+Otherwise open VS Code settings and search for `TestNG Runner`, then set:
 - `testngRunner.mavenHome`
 - `testngRunner.javaHome`
-- `testngRunner.testCategoryMode` (prompt, value, all)
-- `testngRunner.testCategory`
-- `testngRunner.headless` (default, true, false)
+
+Examples:
+- `C:\Program Files\Apache\maven`
+- `C:\Program Files\Java\jdk-17`
+
+The status bar shows whether Maven and Java are currently resolved.
+
+### 5) Run a suite
+Use any of these entry points from the TestNG Runner view:
+- Click the inline **Run TestNG Suite** icon next to a suite
+- Right-click a suite and choose **Run TestNG Suite**
+- Click **Run All TestNG Suites** in the view title to run every discovered suite
+
+The extension finds the nearest `pom.xml` above the selected suite and runs Maven from that directory.
+
+### 6) Watch logs and output
+Runtime output is written to:
+- the shared **TestNG Runner** Output channel
+- a suite-specific output channel
+- a per-suite log file
+
+To open the log file for a suite:
+- Right-click the suite
+- Select **Open TestNG Suite Log**
+
+### 7) Stop a running suite
+Click the inline **Stop TestNG Suite** icon for the running suite, or use the suite context menu.
+
+### 8) Debug a suite with breakpoints
+To debug instead of run:
+- Click the inline **Debug TestNG Suite** icon
+- Or right-click a suite and choose **Debug TestNG Suite**
+
+The extension starts Surefire with JDWP enabled and tries to auto-attach the VS Code Java debugger on `testngRunner.debugPort` (default `5005`).
+
+Debug prerequisite:
+- Install **Extension Pack for Java** by Microsoft
+
+### 9) Use test category selection
+The extension can detect TestNG groups from `@Test(groups = ...)` in Java files.
+
+Relevant settings:
+- `testngRunner.testCategoryMode = prompt`
+  Prompts you to choose a detected group each time you run a suite.
+- `testngRunner.testCategoryMode = value`
+  Always uses the saved `testngRunner.testCategory`.
+- `testngRunner.testCategoryMode = all`
+  Runs without passing `-DtestCategory`.
+
+You can also run the command **TestNG Runner: Select Test Category** to choose and save a category from the current workspace.
+
+### 10) Control headless mode and extra Maven arguments
+Use these settings when your test framework needs them:
+- `testngRunner.headless`
+  Passes `-Dheadless=true` or `-Dheadless=false`
 - `testngRunner.mavenArgs`
-- `testngRunner.debugPort` (default: 5005)
-
-## Quick Overview (What You Will Do)
-1. Open the extension folder in VS Code.
-2. Install dependencies.
-3. Compile the extension.
-4. Launch a test VS Code window (Extension Development Host).
-5. Use the TestNG Runner sidebar to run suites.
-
-## Step-by-Step (Detailed)
-### 1) Open the Extension Folder
-You need to open the `vscode-extension` folder by itself.
-- In VS Code: `File` -> `Open Folder...`
-- Select: `c:\Users\<userpath>\vscode-extension`
-
-After this, the Explorer should show files like `package.json`, `src/extension.ts`, and `media/testng.svg`.
-
-### 2) Install Dependencies
-Open the VS Code terminal:
-- `Terminal` -> `New Terminal`
-
-Run:
-```bash
-npm install
-```
-This downloads the tools needed to build the extension.
-
-### 3) Compile the Extension
-Run:
-```bash
-npm run compile
-```
-This builds the extension into the `dist/` folder.
-
-### 4) Launch the Extension in a Test VS Code Window
-Press `F5` in VS Code.
-
-This opens a new window called **Extension Development Host**.
-That window is your test playground.
-
-### 5) Open Your Project in the Test Window
-In the **Extension Development Host** window:
-- `File` -> `Open Folder...`
-- Select: `c:\Users\KPriyank\VSCode\testRunner`
-
-Now the extension can scan for TestNG XML files in your project.
-
-### 6) Find the TestNG Runner Sidebar
-On the left side Activity Bar, click the icon labeled **TestNG Runner**.
-You should see a list of suites (each `testng.xml` file).
-
-### 7) Run a Suite
-In the TestNG Runner list:
-- Click the **play** icon next to a suite, or
-- Right-click a suite and choose **Run TestNG Suite**.
-
-If `testngRunner.testCategoryMode` is set to `prompt`, you will be asked to pick a Test Category before running.
-
-### 8) See the Output
-Open the Output panel:
-- `View` -> `Output`
-- Choose **TestNG Runner** from the dropdown.
-
-You will see Maven logs and test output here.
-
-### 8b) Debug a Suite (Breakpoints)
-In the TestNG Runner list:
-- Click the **debug** icon next to a suite, or
-- Right-click a suite and choose **Debug TestNG Suite**.
-
-This runs Maven with Surefire in JDWP suspend mode and auto-attaches VS Code's Java debugger on `testngRunner.debugPort`. Because the JVM starts with `suspend=y`, execution waits for the debugger, so breakpoints can pause the test run.
-
-### 9) Stop a Running Suite
-Click the **stop** icon next to the running suite.
-
-## Configure Maven and Java (Important If Not in PATH)
-If Maven or Java are not in your Windows PATH, set them in VS Code settings.
-
-In the **Extension Development Host** window:
-- `File` -> `Preferences` -> `Settings`
-- Search for: `TestNG Runner`
-- Fill in:
-  - **Maven Home** (example: `C:\Program Files\Apache\maven`)
-  - **Java Home** (example: `C:\Program Files\Java\jdk-17`)
-
-## Test Category and Headless Controls
-- Use `testngRunner.headless` to force `-Dheadless=true|false` or leave default.
-- Use `testngRunner.testCategoryMode`:
-  - `prompt`: pick a Test Category from detected `@Test(groups=...)` values each run.
-  - `value`: always use the saved `testngRunner.testCategory`.
-  - `all`: run all tests without passing `-DtestCategory`.
-- Use the command **TestNG Runner: Select Test Category** to pick and save a category from your codebase.
+  Appends extra Maven arguments such as `-Denv=qa`
 
 ## Troubleshooting
 ### No suites found
@@ -128,8 +116,27 @@ In the **Extension Development Host** window:
 - Either install JDK and set JAVA_HOME
 - Or set **Java Home** in settings
 
-## Development Notes
-Common commands:
+## Development
+If you are working on the extension itself, use the steps below.
+
+## Settings
+- `testngRunner.mavenHome`
+- `testngRunner.javaHome`
+- `testngRunner.testCategoryMode` (prompt, value, all)
+- `testngRunner.testCategory`
+- `testngRunner.headless` (default, true, false)
+- `testngRunner.mavenArgs`
+- `testngRunner.debugPort` (default: 5005)
+
+### Codebase | Build and run the extension locally
+```bash
+npm install
+npm run compile
+```
+
+Press `F5` to launch an **Extension Development Host** window, then open a test workspace there and use the **TestNG Runner** view.
+
+### Common commands
 ```bash
 npm run compile
 npm run watch
@@ -140,10 +147,6 @@ Use `npm run watch` if you are actively changing the extension code.
 Each suite writes to its own log file.
 The files are stored in VS Code's extension storage directory.
 You can open them by right-clicking a suite and choosing **Open TestNG Suite Log**.
-
-
-## Debug Prerequisite
-For debug mode, install **Extension Pack for Java** by Microsoft in VS Code.
 
 ## Change Log
 Keep this section updated whenever the extension changes (features added, changed, fixed, or removed).
