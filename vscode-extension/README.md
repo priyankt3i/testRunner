@@ -2,6 +2,10 @@
 
 Run TestNG suites directly from VS Code with a dedicated sidebar.
 
+## Project Source Code:
+
+[GitHub Link](https://github.com/priyankt3i/testRunner)
+
 ## Interactive AI Documentation
 
 [NotebookLM link](https://notebooklm.google.com/notebook/020a3e6a-ed2f-4563-8090-b7f049202241)
