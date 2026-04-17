@@ -124,6 +124,10 @@ class TestngSuiteProvider {
         await this.scanIfNeeded();
         return this.suites;
     }
+    async getSuitesInFolder(folder) {
+        await this.scanIfNeeded();
+        return collectSuites(folder);
+    }
     async scanIfNeeded() {
         if (this.scanned)
             return;
@@ -194,6 +198,16 @@ class TestngSuiteProvider {
     }
 }
 exports.TestngSuiteProvider = TestngSuiteProvider;
+function collectSuites(node) {
+    if (node instanceof SuiteItem) {
+        return [node];
+    }
+    const suites = [];
+    for (const child of node.children) {
+        suites.push(...collectSuites(child));
+    }
+    return suites;
+}
 function sortTree(nodes) {
     for (const node of nodes) {
         node.children.sort((a, b) => {
