@@ -2,7 +2,7 @@
   "name": "testng-runner-vscode",
   "displayName": "TestNG Runner",
   "description": "Run TestNG suites from VS Code with a dedicated sidebar.",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "icon": "media/test.png",
   "publisher": "KumarPriyank",
   "engines": {
