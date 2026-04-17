@@ -54,6 +54,7 @@ function activate(context) {
         showCollapseAll: false
     });
     context.subscriptions.push(output, treeView, statusBar);
+    updateTreeViewMessage();
     updateStatusBar();
     validateSettings(false);
     context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((e) => {
@@ -61,6 +62,10 @@ function activate(context) {
             updateStatusBar();
             validateSettings(false);
         }
+    }));
+    context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => {
+        updateTreeViewMessage();
+        provider.refresh();
     }));
     context.subscriptions.push(vscode.commands.registerCommand("testngRunner.refreshSuites", () => provider.refresh()));
     context.subscriptions.push(vscode.commands.registerCommand("testngRunner.debugScan", async () => {
@@ -321,6 +326,12 @@ function activate(context) {
         statusBar.tooltip = `Maven: ${resolvedMaven}\nJava: ${resolvedJava}`;
         statusBar.command = "testngRunner.openSettings";
         statusBar.show();
+    }
+    function updateTreeViewMessage() {
+        const hasWorkspace = (vscode.workspace.workspaceFolders?.length ?? 0) > 0;
+        treeView.message = hasWorkspace
+            ? undefined
+            : "Nothing to run yet. Open a TestNG Maven project, then come back and let's make some tests nervous.";
     }
 }
 function deactivate() { }

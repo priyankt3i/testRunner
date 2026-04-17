@@ -133,6 +133,11 @@ export class TestngSuiteProvider implements vscode.TreeDataProvider<TreeNode> {
     return this.suites;
   }
 
+  async getSuitesInFolder(folder: FolderNode): Promise<SuiteItem[]> {
+    await this.scanIfNeeded();
+    return collectSuites(folder);
+  }
+
   private async scanIfNeeded(): Promise<void> {
     if (this.scanned) return;
     this.scanned = true;
@@ -218,6 +223,18 @@ export class TestngSuiteProvider implements vscode.TreeDataProvider<TreeNode> {
       current = parent;
     }
   }
+}
+
+function collectSuites(node: TreeNode): SuiteItem[] {
+  if (node instanceof SuiteItem) {
+    return [node];
+  }
+
+  const suites: SuiteItem[] = [];
+  for (const child of node.children) {
+    suites.push(...collectSuites(child));
+  }
+  return suites;
 }
 
 function sortTree(nodes: FolderNode[]): void {

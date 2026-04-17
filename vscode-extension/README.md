@@ -17,11 +17,14 @@ Run TestNG suites directly from VS Code with a dedicated sidebar.
 
 ## How To Use In VS Code
 ### 1) Install the extension
-Install the packaged `.vsix` in VS Code:
-- Open `Extensions`
-- Click the `...` menu
-- Select `Install from VSIX...`
-- Choose `testng-runner-vscode-0.1.1.vsix`
+Install **TestNG Runner** from the Visual Studio Code Marketplace:
+- In VS Code, open `Extensions`
+- Search for `TestNG Runner`
+- Select the extension published by **Kumar Priyank**
+- Click `Install`
+
+Marketplace page:
+- https://marketplace.visualstudio.com/items?itemName=KumarPriyank.testng-runner-vscode
 
 ### 2) Open your Java/TestNG project
 Open the project that contains:
@@ -60,6 +63,17 @@ Use any of these entry points from the TestNG Runner view:
 
 The extension finds the nearest `pom.xml` above the selected suite and runs Maven from that directory.
 
+### 5b) Run every suite inside a folder
+Folders and subfolders that contain detected TestNG suite XML files also support inline actions.
+
+You can hover a folder in the TestNG Runner view and:
+- click **Run TestNG Suite** to run every suite under that folder recursively
+- click **Debug TestNG Suite** to debug every suite under that folder sequentially
+- click **Stop TestNG Suite** to stop every running suite under that folder
+- click **Open TestNG Suite Log** to choose and open one suite log from that folder
+
+This makes it easier to run a logical group of suites without triggering the entire workspace.
+
 ### 6) Watch logs and output
 Runtime output is written to:
 - the shared **TestNG Runner** Output channel
@@ -73,12 +87,16 @@ To open the log file for a suite:
 ### 7) Stop a running suite
 Click the inline **Stop TestNG Suite** icon for the running suite, or use the suite context menu.
 
+If you stop from a folder, the extension stops all running suites inside that folder tree.
+
 ### 8) Debug a suite with breakpoints
 To debug instead of run:
 - Click the inline **Debug TestNG Suite** icon
 - Or right-click a suite and choose **Debug TestNG Suite**
 
 The extension starts Surefire with JDWP enabled and tries to auto-attach the VS Code Java debugger on `testngRunner.debugPort` (default `5005`).
+
+If you start debug from a folder, the extension debugs each suite in that folder one by one.
 
 Debug prerequisite:
 - Install **Extension Pack for Java** by Microsoft
@@ -95,6 +113,8 @@ Relevant settings:
   Runs without passing `-DtestCategory`.
 
 You can also run the command **TestNG Runner: Select Test Category** to choose and save a category from the current workspace.
+
+For folder-level run or debug actions, category selection is resolved once for the whole batch instead of prompting once per suite.
 
 ### 10) Control headless mode and extra Maven arguments
 Use these settings when your test framework needs them:
@@ -118,17 +138,7 @@ Use these settings when your test framework needs them:
 
 ## Development
 If you are working on the extension itself, use the steps below.
-
-## Settings
-- `testngRunner.mavenHome`
-- `testngRunner.javaHome`
-- `testngRunner.testCategoryMode` (prompt, value, all)
-- `testngRunner.testCategory`
-- `testngRunner.headless` (default, true, false)
-- `testngRunner.mavenArgs`
-- `testngRunner.debugPort` (default: 5005)
-
-### Codebase | Build and run the extension locally
+### Build and run the extension locally
 ```bash
 npm install
 npm run compile
@@ -148,34 +158,20 @@ Each suite writes to its own log file.
 The files are stored in VS Code's extension storage directory.
 You can open them by right-clicking a suite and choosing **Open TestNG Suite Log**.
 
-## Change Log
-Keep this section updated whenever the extension changes (features added, changed, fixed, or removed).
+## Changelog
+Release notes are maintained in [CHANGELOG.md](./CHANGELOG.md).
 
-### Unreleased
-#### Added
-- Debug suite command/button in the sidebar context menu (`Debug TestNG Suite`).
-- New setting: `testngRunner.debugPort` to control debugger attach port.
-- Debug mode support for breakpoints by starting Surefire with JDWP `suspend=y`.
+## Connect with me:
 
-#### Changed
-- Debug run now waits for debugger readiness before attach, to improve reliability.
-
-#### Fixed
-- Reduced debug attach handshake timeout issues by delaying attach until JDWP is available.
-- Added a debug-port-in-use check before starting debug mode.
-
-#### Removed
-- None.
-
-### 0.1.1
-#### Added
-- Initial suite discovery, run/stop, run-all, per-suite logs, settings panel, and test category support.
-
-#### Changed
-- None.
-
-#### Fixed
-- None.
-
-#### Removed
-- None.
+### Kumar Priyank
+<p align="left">  
+  <a href="https://x.com/Priyank_T3i" target="_blank">
+  <img src=https://img.shields.io/badge/twitter-%2300acee.svg?&style=for-the-badge&logo=twitter&logoColor=white alt=twitter style="margin-bottom: 5px;" />
+  </a>
+  <a href="https://www.linkedin.com/in/priyankt3i" target="_blank">
+  <img src=https://img.shields.io/badge/linkedin-%231E77B5.svg?&style=for-the-badge&logo=linkedin&logoColor=white alt=linkedin style="margin-bottom: 5px;" />
+  </a>
+  <a href="https://github.com/priyankt3i" target="_blank">
+  <img src=https://img.shields.io/badge/github-%231E77B5.svg?&style=for-the-badge&logo=github&logoColor=white alt=github style="margin-bottom: 5px;" />
+  </a> 
+</p>

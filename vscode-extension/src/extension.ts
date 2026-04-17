@@ -5,8 +5,10 @@ import * as net from "net";
 import { createHash } from "crypto";
 import { spawn, exec, spawnSync, execSync } from "child_process";
 import {
+  FolderNode,
   SuiteItem,
   SuiteMeta,
+  TreeNode,
   TestngSuiteProvider
 } from "./testngTree";
 
@@ -16,6 +18,7 @@ type RunningProcess = {
 };
 
 type RunMode = "run" | "debug";
+type CommandTarget = SuiteItem | FolderNode;
 
 export function activate(context: vscode.ExtensionContext) {
   const output = vscode.window.createOutputChannel("TestNG Runner");
@@ -34,6 +37,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(output, treeView, statusBar);
 
+  updateTreeViewMessage();
   updateStatusBar();
   validateSettings(false);
   context.subscriptions.push(
@@ -42,6 +46,12 @@ export function activate(context: vscode.ExtensionContext) {
         updateStatusBar();
         validateSettings(false);
       }
+    })
+  );
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      updateTreeViewMessage();
+      provider.refresh();
     })
   );
 
@@ -98,10 +108,10 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "testngRunner.runSuite",
-      async (item?: SuiteItem) => {
-        const suite = item ?? (await pickSuite(provider));
-        if (!suite) return;
-        await runSuiteInternal(suite, "run");
+      async (item?: CommandTarget) => {
+        const target = item ?? (await pickSuite(provider));
+        if (!target) return;
+        await runTarget(target, "run");
       }
     )
   );
@@ -109,10 +119,10 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "testngRunner.debugSuite",
-      async (item?: SuiteItem) => {
-        const suite = item ?? (await pickSuite(provider));
-        if (!suite) return;
-        await runSuiteInternal(suite, "debug");
+      async (item?: CommandTarget) => {
+        const target = item ?? (await pickSuite(provider));
+        if (!target) return;
+        await runTarget(target, "debug");
       }
     )
   );
@@ -124,30 +134,17 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage("No TestNG suites found.");
         return;
       }
-      for (const suite of suites) {
-        if (running.has(suite.suitePath)) continue;
-        await runSuiteInternal(suite, "run", true);
-      }
+      await runSuitesBatch(suites, "run", "all discovered suites");
     })
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "testngRunner.stopSuite",
-      async (item?: SuiteItem) => {
-        const suite = item ?? (await pickSuite(provider));
-        if (!suite) return;
-        const run = running.get(suite.suitePath);
-        if (!run) {
-          vscode.window.showInformationMessage("Suite is not running.");
-          return;
-        }
-
-        await stopProcess(run.pid);
-        run.proc.kill();
-        running.delete(suite.suitePath);
-        provider.setStatus(suite.suitePath, "idle");
-        output.appendLine("Stopped suite.");
+      async (item?: CommandTarget) => {
+        const target = item ?? (await pickSuite(provider));
+        if (!target) return;
+        await stopTarget(target);
       }
     )
   );
@@ -155,24 +152,117 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "testngRunner.openSuiteLog",
-      async (item?: SuiteItem) => {
-        const suite = item ?? (await pickSuite(provider));
-        if (!suite) return;
-        const logPath = getLogFilePath(context, suite.suitePath);
-        if (!logPath || !fs.existsSync(logPath)) {
-          vscode.window.showInformationMessage("No log file found yet.");
-          return;
-        }
-        const doc = await vscode.workspace.openTextDocument(logPath);
-        await vscode.window.showTextDocument(doc, { preview: false });
+      async (item?: CommandTarget) => {
+        const target = item ?? (await pickSuite(provider));
+        if (!target) return;
+        await openLogForTarget(target);
       }
     )
   );
 
+  async function runTarget(target: CommandTarget, mode: RunMode): Promise<void> {
+    if (target instanceof SuiteItem) {
+      await runSuiteInternal(target, mode);
+      return;
+    }
+
+    const suites = await provider.getSuitesInFolder(target);
+    if (suites.length === 0) {
+      vscode.window.showInformationMessage("No TestNG suites found in this folder.");
+      return;
+    }
+
+    await runSuitesBatch(
+      suites,
+      mode,
+      `${target.label as string} (${suites.length} suite${suites.length === 1 ? "" : "s"})`
+    );
+  }
+
+  async function runSuitesBatch(
+    suites: SuiteItem[],
+    mode: RunMode,
+    scopeLabel: string
+  ): Promise<void> {
+    const category = await resolveBatchTestCategory(provider);
+    let started = 0;
+
+    for (const suite of suites) {
+      if (running.has(suite.suitePath)) {
+        continue;
+      }
+      const exitCode = await runSuiteInternal(suite, mode, true, category);
+      if (exitCode !== undefined) {
+        started += 1;
+      }
+    }
+
+    if (started === 0) {
+      vscode.window.showInformationMessage(
+        `No suites started for ${scopeLabel}.`
+      );
+      return;
+    }
+
+    output.appendLine(
+      `${mode === "debug" ? "Debugged" : "Ran"} ${started} suite${started === 1 ? "" : "s"} from ${scopeLabel}.`
+    );
+  }
+
+  async function stopTarget(target: CommandTarget): Promise<void> {
+    const suites =
+      target instanceof SuiteItem
+        ? [target]
+        : await provider.getSuitesInFolder(target);
+
+    const activeRuns = suites.filter((suite) => running.has(suite.suitePath));
+    if (activeRuns.length === 0) {
+      vscode.window.showInformationMessage(
+        target instanceof SuiteItem
+          ? "Suite is not running."
+          : "No running suites found in this folder."
+      );
+      return;
+    }
+
+    for (const suite of activeRuns) {
+      const run = running.get(suite.suitePath);
+      if (!run) continue;
+      await stopProcess(run.pid);
+      run.proc.kill();
+      running.delete(suite.suitePath);
+      provider.setStatus(suite.suitePath, "idle");
+    }
+
+    output.appendLine(
+      target instanceof SuiteItem
+        ? "Stopped suite."
+        : `Stopped ${activeRuns.length} running suite${activeRuns.length === 1 ? "" : "s"} in ${target.label as string}.`
+    );
+  }
+
+  async function openLogForTarget(target: CommandTarget): Promise<void> {
+    const suite =
+      target instanceof SuiteItem
+        ? target
+        : await pickSuiteFromFolder(target, provider);
+
+    if (!suite) return;
+
+    const logPath = getLogFilePath(context, suite.suitePath);
+    if (!logPath || !fs.existsSync(logPath)) {
+      vscode.window.showInformationMessage("No log file found yet.");
+      return;
+    }
+    const doc = await vscode.workspace.openTextDocument(logPath);
+    await vscode.window.showTextDocument(doc, { preview: false });
+  }
+
   async function runSuiteInternal(
     suite: SuiteItem,
     mode: RunMode,
-    quiet: boolean = false
+    quiet: boolean = false,
+    categoryOverride?: string
   ): Promise<number | undefined> {
     if (running.has(suite.suitePath)) {
       if (!quiet) {
@@ -254,10 +344,9 @@ export function activate(context: vscode.ExtensionContext) {
       );
     }
 
-    const category = await resolveTestCategory(
-      testCategoryMode,
-      provider
-    );
+    const category = categoryOverride !== undefined
+      ? categoryOverride
+      : await resolveTestCategory(testCategoryMode, provider);
     if (category) {
       args.push(`-DtestCategory=${category}`);
     }
@@ -432,6 +521,13 @@ export function activate(context: vscode.ExtensionContext) {
     statusBar.command = "testngRunner.openSettings";
     statusBar.show();
   }
+
+  function updateTreeViewMessage(): void {
+    const hasWorkspace = (vscode.workspace.workspaceFolders?.length ?? 0) > 0;
+    treeView.message = hasWorkspace
+      ? undefined
+      : "Nothing to run yet. Open a TestNG Maven project, then come back and let's make some tests nervous.";
+  }
 }
 
 export function deactivate() {}
@@ -455,6 +551,27 @@ async function pickSuite(
   return picked?.item;
 }
 
+async function pickSuiteFromFolder(
+  folder: FolderNode,
+  provider: TestngSuiteProvider
+): Promise<SuiteItem | undefined> {
+  const suites = await provider.getSuitesInFolder(folder);
+  if (suites.length === 0) {
+    vscode.window.showInformationMessage("No TestNG suites found in this folder.");
+    return;
+  }
+
+  const picked = await vscode.window.showQuickPick(
+    suites.map((suite) => ({
+      label: suite.label as string,
+      description: vscode.workspace.asRelativePath(suite.suitePath),
+      item: suite
+    })),
+    { placeHolder: `Select a suite log from ${folder.label as string}` }
+  );
+  return picked?.item;
+}
+
 async function resolveTestCategory(
   mode: string,
   provider: TestngSuiteProvider
@@ -467,6 +584,14 @@ async function resolveTestCategory(
     return value || undefined;
   }
   return pickTestCategory(provider);
+}
+
+async function resolveBatchTestCategory(
+  provider: TestngSuiteProvider
+): Promise<string | undefined> {
+  const config = vscode.workspace.getConfiguration("testngRunner");
+  const mode = (config.get<string>("testCategoryMode") || "prompt").trim();
+  return resolveTestCategory(mode, provider);
 }
 
 async function pickTestCategory(
