@@ -15,6 +15,7 @@ import {
 type RunningProcess = {
   pid: number;
   proc: ReturnType<typeof spawn>;
+  debugPort?: number;
 };
 
 type RunMode = "run" | "debug";
@@ -36,6 +37,24 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   context.subscriptions.push(output, treeView, statusBar);
+
+  context.subscriptions.push(
+    vscode.debug.onDidTerminateDebugSession((session) => {
+      const match = /^Attach TestNG \((\d+)\)$/.exec(session.name);
+      if (!match) return;
+      const debugPort = Number(match[1]);
+      for (const [suitePath, run] of running) {
+        if (run.debugPort !== debugPort) continue;
+        void stopProcess(run.pid, run.debugPort).then(() => {
+          run.proc.kill();
+          if (running.get(suitePath) === run) {
+            running.delete(suitePath);
+            provider.setStatus(suitePath, "idle");
+          }
+        });
+      }
+    })
+  );
 
   updateTreeViewMessage();
   updateStatusBar();
@@ -228,7 +247,7 @@ export function activate(context: vscode.ExtensionContext) {
     for (const suite of activeRuns) {
       const run = running.get(suite.suitePath);
       if (!run) continue;
-      await stopProcess(run.pid);
+      await stopProcess(run.pid, run.debugPort);
       run.proc.kill();
       running.delete(suite.suitePath);
       provider.setStatus(suite.suitePath, "idle");
@@ -366,7 +385,8 @@ export function activate(context: vscode.ExtensionContext) {
     const child = spawn(mvnCmd, args, {
       cwd: workDir,
       env,
-      shell: true
+      shell: true,
+      detached: process.platform !== "win32"
     });
 
     if (!child.pid) {
@@ -374,7 +394,11 @@ export function activate(context: vscode.ExtensionContext) {
       return;
     }
 
-    running.set(suite.suitePath, { pid: child.pid, proc: child });
+    running.set(suite.suitePath, {
+      pid: child.pid,
+      proc: child,
+      debugPort: mode === "debug" ? debugPort : undefined
+    });
     provider.setStatus(suite.suitePath, "running");
 
     const append = (text: string) => {
@@ -841,10 +865,18 @@ function isValidJavaHome(javaHome: string): boolean {
   return fs.existsSync(path.join(javaHome, "bin", java));
 }
 
-function stopProcess(pid: number): Promise<void> {
+function stopProcess(pid: number, debugPort?: number): Promise<void> {
   return new Promise((resolve) => {
     if (process.platform === "win32") {
-      exec(`taskkill /PID ${pid} /T /F`, () => resolve());
+      exec(`taskkill /PID ${pid} /T /F`, async () => {
+        // Surefire can fork javaw.exe in a way that lets it survive taskkill
+        // against Maven's process tree. On a debug stop, also terminate the
+        // process still listening on this run's JDWP port.
+        if (debugPort !== undefined) {
+          await stopProcessListeningOnPort(debugPort);
+        }
+        resolve();
+      });
     } else {
       try {
         process.kill(-pid, "SIGTERM");
@@ -857,5 +889,46 @@ function stopProcess(pid: number): Promise<void> {
       }
       resolve();
     }
+  });
+}
+
+function stopProcessListeningOnPort(port: number): Promise<void> {
+  return new Promise((resolve) => {
+    exec("netstat -ano -p tcp", (error, stdout) => {
+      if (error) {
+        resolve();
+        return;
+      }
+
+      const pids = new Set<number>();
+      for (const line of stdout.split(/\r?\n/)) {
+        const columns = line.trim().split(/\s+/);
+        if (
+          columns.length < 5 ||
+          columns[0].toUpperCase() !== "TCP" ||
+          !columns[1].endsWith(`:${port}`) ||
+          columns[3].toUpperCase() !== "LISTENING"
+        ) {
+          continue;
+        }
+        const pid = Number(columns[4]);
+        if (Number.isInteger(pid) && pid > 0 && pid !== process.pid) {
+          pids.add(pid);
+        }
+      }
+
+      if (pids.size === 0) {
+        resolve();
+        return;
+      }
+
+      let remaining = pids.size;
+      for (const listenerPid of pids) {
+        exec(`taskkill /PID ${listenerPid} /T /F`, () => {
+          remaining -= 1;
+          if (remaining === 0) resolve();
+        });
+      }
+    });
   });
 }

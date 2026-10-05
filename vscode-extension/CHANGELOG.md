@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Fixed
+- Stopping a debug suite now also terminates the process listening on its JDWP port if Surefire's forked JVM survives Maven process-tree cleanup.
+- Unix suite stops now run Maven in a separate process group so the full process tree can be signaled.
+
 ## 0.1.3
 
 ### Added
