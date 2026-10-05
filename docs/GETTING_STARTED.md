@@ -20,17 +20,21 @@ Marketplace URL:
 4. Pick your `.vsix` file.
 
 ## 2. Build `.vsix` From Source (for maintainers)
-1. Open terminal in project root.
+1. Open a terminal and enter the extension folder:
+```bash
+cd vscode-extension
+```
 2. Install dependencies:
 ```bash
 npm install
 ```
-3. Create VSIX package:
+3. Compile and create the VSIX package:
 ```bash
-npx @vscode/vsce package
+npm run compile
+npm run package
 ```
 4. Use the generated file:
-- `testng-runner-vscode-<version>.vsix` (name may vary by package config)
+- `vscode-extension/testng-runner-vscode-<version>.vsix`
 
 ## 3. Prerequisites on User Machine
 - Windows 10/11

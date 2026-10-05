@@ -2,11 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 0.1.6 - 2026-10-05
 
 ### Fixed
 - Stopping a debug suite now also terminates the process listening on its JDWP port if Surefire's forked JVM survives Maven process-tree cleanup.
 - Unix suite stops now run Maven in a separate process group so the full process tree can be signaled.
+- Cancelling the test category prompt no longer starts an unfiltered run.
+- Maven Home is added to PATH using the current platform's path separator.
+- Suite discovery now assigns files to the correct nested workspace root and waits for scans to finish before returning results.
 
 ## 0.1.3
 

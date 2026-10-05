@@ -101,6 +101,7 @@ To debug instead of run:
 The extension starts Surefire with JDWP enabled and tries to auto-attach the VS Code Java debugger on `testngRunner.debugPort` (default `5005`).
 
 If you start debug from a folder, the extension debugs each suite in that folder one by one.
+Use **Stop TestNG Suite** to stop the whole run. Ending the attached VS Code debug session also stops its associated TestNG run and cleans up the debug process when possible.
 
 Debug prerequisite:
 - Install **Extension Pack for Java** by Microsoft
@@ -110,7 +111,7 @@ The extension can detect TestNG groups from `@Test(groups = ...)` in Java files.
 
 Relevant settings:
 - `testngRunner.testCategoryMode = prompt`
-  Prompts you to choose a detected group each time you run a suite.
+  Prompts you to choose a detected group each time you run a suite. Cancelling the prompt cancels the run.
 - `testngRunner.testCategoryMode = value`
   Always uses the saved `testngRunner.testCategory`.
 - `testngRunner.testCategoryMode = all`
@@ -140,10 +141,16 @@ Use these settings when your test framework needs them:
 - Either install JDK and set JAVA_HOME
 - Or set **Java Home** in settings
 
+### Debug port 5005 is already in use
+- Stop the active suite with **Stop TestNG Suite** or end its attached debug session, then retry.
+- If another process owns the port, change `testngRunner.debugPort` in Settings.
+- On Windows, find the listener with `netstat -ano | findstr :5005`, confirm the PID with `tasklist /FI "PID eq <PID>"`, then stop that process with `taskkill /F /PID <PID>` if it is safe to do so. Check that the `netstat` row is `LISTENING` before acting; other rows may not represent an active listener.
+
 ## Development
 If you are working on the extension itself, use the steps below.
 ### Build and run the extension locally
 ```bash
+cd vscode-extension
 npm install
 npm run compile
 ```
@@ -154,6 +161,7 @@ Press `F5` to launch an **Extension Development Host** window, then open a test 
 ```bash
 npm run compile
 npm run watch
+npm run package
 ```
 Use `npm run watch` if you are actively changing the extension code.
 

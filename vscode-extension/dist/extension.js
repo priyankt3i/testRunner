@@ -54,6 +54,23 @@ function activate(context) {
         showCollapseAll: false
     });
     context.subscriptions.push(output, treeView, statusBar);
+    context.subscriptions.push(vscode.debug.onDidTerminateDebugSession((session) => {
+        const match = /^Attach TestNG \((\d+)\)$/.exec(session.name);
+        if (!match)
+            return;
+        const debugPort = Number(match[1]);
+        for (const [suitePath, run] of running) {
+            if (run.debugPort !== debugPort)
+                continue;
+            void stopProcess(run.pid, run.debugPort).then(() => {
+                run.proc.kill();
+                if (running.get(suitePath) === run) {
+                    running.delete(suitePath);
+                    provider.setStatus(suitePath, "idle");
+                }
+            });
+        }
+    }));
     updateTreeViewMessage();
     updateStatusBar();
     validateSettings(false);
@@ -138,6 +155,8 @@ function activate(context) {
     }
     async function runSuitesBatch(suites, mode, scopeLabel) {
         const category = await resolveBatchTestCategory(provider);
+        if (category.cancelled)
+            return;
         let started = 0;
         for (const suite of suites) {
             if (running.has(suite.suitePath)) {
@@ -169,7 +188,7 @@ function activate(context) {
             const run = running.get(suite.suitePath);
             if (!run)
                 continue;
-            await stopProcess(run.pid);
+            await stopProcess(run.pid, run.debugPort);
             run.proc.kill();
             running.delete(suite.suitePath);
             provider.setStatus(suite.suitePath, "idle");
@@ -216,6 +235,11 @@ function activate(context) {
                 return;
             }
         }
+        const categorySelection = categoryOverride !== undefined
+            ? categoryOverride
+            : await resolveTestCategory(testCategoryMode, provider);
+        if (categorySelection.cancelled)
+            return;
         const mvnCmd = getMavenCommand(mavenHome);
         const workDir = provider.findPomDir(suite.suitePath, suite.workspaceFolder);
         const suiteRel = path.relative(workDir, suite.suitePath);
@@ -234,7 +258,7 @@ function activate(context) {
         }
         if (mavenHome) {
             const bin = path.join(mavenHome, "bin");
-            env.PATH = `${bin};${env.PATH || ""}`;
+            env.PATH = `${bin}${path.delimiter}${env.PATH || ""}`;
             env.MAVEN_HOME = mavenHome;
         }
         const args = ["test", `-Dsurefire.suiteXmlFiles="${suiteRelPosix}"`];
@@ -243,9 +267,7 @@ function activate(context) {
             output.appendLine(`Starting Surefire in debug mode on port ${debugPort} (suspend=y).`);
             suiteOutput.appendLine(`Starting Surefire in debug mode on port ${debugPort} (suspend=y).`);
         }
-        const category = categoryOverride !== undefined
-            ? categoryOverride
-            : await resolveTestCategory(testCategoryMode, provider);
+        const category = categorySelection.value;
         if (category) {
             args.push(`-DtestCategory=${category}`);
         }
@@ -262,13 +284,18 @@ function activate(context) {
         const child = (0, child_process_1.spawn)(mvnCmd, args, {
             cwd: workDir,
             env,
-            shell: true
+            shell: true,
+            detached: process.platform !== "win32"
         });
         if (!child.pid) {
             vscode.window.showErrorMessage("Failed to start Maven process.");
             return;
         }
-        running.set(suite.suitePath, { pid: child.pid, proc: child });
+        running.set(suite.suitePath, {
+            pid: child.pid,
+            proc: child,
+            debugPort: mode === "debug" ? debugPort : undefined
+        });
         provider.setStatus(suite.suitePath, "running");
         const append = (text) => {
             output.append(text);
@@ -415,11 +442,11 @@ async function pickSuiteFromFolder(folder, provider) {
 async function resolveTestCategory(mode, provider) {
     const normalized = mode.toLowerCase();
     if (normalized === "all")
-        return;
+        return { cancelled: false };
     if (normalized === "value") {
         const config = vscode.workspace.getConfiguration("testngRunner");
         const value = (config.get("testCategory") || "").trim();
-        return value || undefined;
+        return { cancelled: false, value: value || undefined };
     }
     return pickTestCategory(provider);
 }
@@ -436,12 +463,14 @@ async function pickTestCategory(provider) {
     }
     if (items.length === 0) {
         vscode.window.showWarningMessage("No Test Categories detected. Set one in settings or add @Test(groups=...).");
-        return;
+        return { cancelled: true };
     }
     const picked = await vscode.window.showQuickPick(items, {
         placeHolder: "Select a Test Category"
     });
-    return picked?.label;
+    return picked
+        ? { cancelled: false, value: picked.label }
+        : { cancelled: true };
 }
 async function detectTestCategories() {
     const files = await vscode.workspace.findFiles("**/*.java", "{**/node_modules/**,**/target/**,**/build/**,**/bin/**}");
@@ -492,7 +521,7 @@ function buildEnv(mavenHome, javaHome) {
     }
     if (mavenHome) {
         const bin = path.join(mavenHome, "bin");
-        env.PATH = `${bin};${env.PATH || ""}`;
+        env.PATH = `${bin}${path.delimiter}${env.PATH || ""}`;
         env.MAVEN_HOME = mavenHome;
     }
     return env;
@@ -630,10 +659,18 @@ function isValidJavaHome(javaHome) {
     const java = process.platform === "win32" ? "java.exe" : "java";
     return fs.existsSync(path.join(javaHome, "bin", java));
 }
-function stopProcess(pid) {
+function stopProcess(pid, debugPort) {
     return new Promise((resolve) => {
         if (process.platform === "win32") {
-            (0, child_process_1.exec)(`taskkill /PID ${pid} /T /F`, () => resolve());
+            (0, child_process_1.exec)(`taskkill /PID ${pid} /T /F`, async () => {
+                // Surefire can fork javaw.exe in a way that lets it survive taskkill
+                // against Maven's process tree. On a debug stop, also terminate the
+                // process still listening on this run's JDWP port.
+                if (debugPort !== undefined) {
+                    await stopProcessListeningOnPort(debugPort);
+                }
+                resolve();
+            });
         }
         else {
             try {
@@ -649,6 +686,42 @@ function stopProcess(pid) {
             }
             resolve();
         }
+    });
+}
+function stopProcessListeningOnPort(port) {
+    return new Promise((resolve) => {
+        (0, child_process_1.exec)("netstat -ano -p tcp", (error, stdout) => {
+            if (error) {
+                resolve();
+                return;
+            }
+            const pids = new Set();
+            for (const line of stdout.split(/\r?\n/)) {
+                const columns = line.trim().split(/\s+/);
+                if (columns.length < 5 ||
+                    columns[0].toUpperCase() !== "TCP" ||
+                    !columns[1].endsWith(`:${port}`) ||
+                    columns[3].toUpperCase() !== "LISTENING") {
+                    continue;
+                }
+                const pid = Number(columns[4]);
+                if (Number.isInteger(pid) && pid > 0 && pid !== process.pid) {
+                    pids.add(pid);
+                }
+            }
+            if (pids.size === 0) {
+                resolve();
+                return;
+            }
+            let remaining = pids.size;
+            for (const listenerPid of pids) {
+                (0, child_process_1.exec)(`taskkill /PID ${listenerPid} /T /F`, () => {
+                    remaining -= 1;
+                    if (remaining === 0)
+                        resolve();
+                });
+            }
+        });
     });
 }
 //# sourceMappingURL=extension.js.map

@@ -82,10 +82,12 @@ class TestngSuiteProvider {
         this.statusByPath = new Map();
         this.metaByPath = new Map();
         this.scanned = false;
+        this.scanVersion = 0;
         this.metaByPath = metaByPath;
     }
     refresh() {
         this.scanned = false;
+        this.scanVersion += 1;
         this._onDidChangeTreeData.fire(undefined);
     }
     setStatus(suitePath, status) {
@@ -131,11 +133,35 @@ class TestngSuiteProvider {
     async scanIfNeeded() {
         if (this.scanned)
             return;
-        this.scanned = true;
-        this.suites = [];
-        this.roots = [];
+        if (this.scanPromise) {
+            await this.scanPromise;
+            if (!this.scanned)
+                return this.scanIfNeeded();
+            return;
+        }
+        const version = this.scanVersion;
+        const scanPromise = this.scan(version);
+        this.scanPromise = scanPromise;
+        try {
+            await scanPromise;
+        }
+        finally {
+            if (this.scanPromise === scanPromise)
+                this.scanPromise = undefined;
+        }
+        if (!this.scanned)
+            return this.scanIfNeeded();
+    }
+    async scan(version) {
+        const suites = [];
+        const roots = [];
         const folders = vscode.workspace.workspaceFolders;
         if (!folders || folders.length === 0) {
+            if (version === this.scanVersion) {
+                this.suites = suites;
+                this.roots = roots;
+                this.scanned = true;
+            }
             return;
         }
         const xmlFiles = await vscode.workspace.findFiles("**/*.xml", "{**/node_modules/**,**/target/**}");
@@ -143,10 +169,12 @@ class TestngSuiteProvider {
         for (const ws of folders) {
             const root = new FolderNode(ws.name, ws.uri.fsPath, true);
             rootByFolder.set(ws.uri.fsPath, root);
-            this.roots.push(root);
+            roots.push(root);
         }
         for (const file of xmlFiles) {
-            const folder = folders.find((f) => file.fsPath.startsWith(f.uri.fsPath));
+            const folder = folders
+                .filter((candidate) => isPathInside(candidate.uri.fsPath, file.fsPath))
+                .sort((a, b) => b.uri.fsPath.length - a.uri.fsPath.length)[0];
             if (!folder)
                 continue;
             if (!(await isTestngSuite(file.fsPath)))
@@ -174,9 +202,14 @@ class TestngSuiteProvider {
             const meta = this.metaByPath.get(file.fsPath) ?? {};
             const suite = new SuiteItem(path.basename(file.fsPath), file.fsPath, folder, status, meta);
             parent.children.push(suite);
-            this.suites.push(suite);
+            suites.push(suite);
         }
-        sortTree(this.roots);
+        sortTree(roots);
+        if (version !== this.scanVersion)
+            return;
+        this.suites = suites;
+        this.roots = roots;
+        this.scanned = true;
     }
     findPomDir(suitePath, workspaceFolder) {
         let current = path.dirname(suitePath);
@@ -198,6 +231,13 @@ class TestngSuiteProvider {
     }
 }
 exports.TestngSuiteProvider = TestngSuiteProvider;
+function isPathInside(parentPath, childPath) {
+    const relative = path.relative(parentPath, childPath);
+    return (relative === "" ||
+        (relative !== ".." &&
+            !relative.startsWith(`..${path.sep}`) &&
+            !path.isAbsolute(relative)));
+}
 function collectSuites(node) {
     if (node instanceof SuiteItem) {
         return [node];

@@ -77,6 +77,8 @@ export class TestngSuiteProvider implements vscode.TreeDataProvider<TreeNode> {
   private statusByPath = new Map<string, SuiteStatus>();
   private metaByPath = new Map<string, SuiteMeta>();
   private scanned = false;
+  private scanVersion = 0;
+  private scanPromise?: Promise<void>;
 
   constructor(
     private readonly output: vscode.OutputChannel,
@@ -87,6 +89,7 @@ export class TestngSuiteProvider implements vscode.TreeDataProvider<TreeNode> {
 
   refresh(): void {
     this.scanned = false;
+    this.scanVersion += 1;
     this._onDidChangeTreeData.fire(undefined);
   }
 
@@ -140,12 +143,34 @@ export class TestngSuiteProvider implements vscode.TreeDataProvider<TreeNode> {
 
   private async scanIfNeeded(): Promise<void> {
     if (this.scanned) return;
-    this.scanned = true;
-    this.suites = [];
-    this.roots = [];
+    if (this.scanPromise) {
+      await this.scanPromise;
+      if (!this.scanned) return this.scanIfNeeded();
+      return;
+    }
+
+    const version = this.scanVersion;
+    const scanPromise = this.scan(version);
+    this.scanPromise = scanPromise;
+    try {
+      await scanPromise;
+    } finally {
+      if (this.scanPromise === scanPromise) this.scanPromise = undefined;
+    }
+    if (!this.scanned) return this.scanIfNeeded();
+  }
+
+  private async scan(version: number): Promise<void> {
+    const suites: SuiteItem[] = [];
+    const roots: FolderNode[] = [];
 
     const folders = vscode.workspace.workspaceFolders;
     if (!folders || folders.length === 0) {
+      if (version === this.scanVersion) {
+        this.suites = suites;
+        this.roots = roots;
+        this.scanned = true;
+      }
       return;
     }
 
@@ -158,11 +183,13 @@ export class TestngSuiteProvider implements vscode.TreeDataProvider<TreeNode> {
     for (const ws of folders) {
       const root = new FolderNode(ws.name, ws.uri.fsPath, true);
       rootByFolder.set(ws.uri.fsPath, root);
-      this.roots.push(root);
+      roots.push(root);
     }
 
     for (const file of xmlFiles) {
-      const folder = folders.find((f) => file.fsPath.startsWith(f.uri.fsPath));
+      const folder = folders
+        .filter((candidate) => isPathInside(candidate.uri.fsPath, file.fsPath))
+        .sort((a, b) => b.uri.fsPath.length - a.uri.fsPath.length)[0];
       if (!folder) continue;
       if (!(await isTestngSuite(file.fsPath))) continue;
 
@@ -198,10 +225,14 @@ export class TestngSuiteProvider implements vscode.TreeDataProvider<TreeNode> {
         meta
       );
       parent.children.push(suite);
-      this.suites.push(suite);
+      suites.push(suite);
     }
 
-    sortTree(this.roots);
+    sortTree(roots);
+    if (version !== this.scanVersion) return;
+    this.suites = suites;
+    this.roots = roots;
+    this.scanned = true;
   }
 
   findPomDir(suitePath: string, workspaceFolder: vscode.WorkspaceFolder): string {
@@ -223,6 +254,16 @@ export class TestngSuiteProvider implements vscode.TreeDataProvider<TreeNode> {
       current = parent;
     }
   }
+}
+
+function isPathInside(parentPath: string, childPath: string): boolean {
+  const relative = path.relative(parentPath, childPath);
+  return (
+    relative === "" ||
+    (relative !== ".." &&
+      !relative.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relative))
+  );
 }
 
 function collectSuites(node: TreeNode): SuiteItem[] {

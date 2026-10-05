@@ -20,6 +20,7 @@ type RunningProcess = {
 
 type RunMode = "run" | "debug";
 type CommandTarget = SuiteItem | FolderNode;
+type CategorySelection = { cancelled: boolean; value?: string };
 
 export function activate(context: vscode.ExtensionContext) {
   const output = vscode.window.createOutputChannel("TestNG Runner");
@@ -204,6 +205,7 @@ export function activate(context: vscode.ExtensionContext) {
     scopeLabel: string
   ): Promise<void> {
     const category = await resolveBatchTestCategory(provider);
+    if (category.cancelled) return;
     let started = 0;
 
     for (const suite of suites) {
@@ -281,7 +283,7 @@ export function activate(context: vscode.ExtensionContext) {
     suite: SuiteItem,
     mode: RunMode,
     quiet: boolean = false,
-    categoryOverride?: string
+    categoryOverride?: CategorySelection
   ): Promise<number | undefined> {
     if (running.has(suite.suitePath)) {
       if (!quiet) {
@@ -315,6 +317,11 @@ export function activate(context: vscode.ExtensionContext) {
       }
     }
 
+    const categorySelection = categoryOverride !== undefined
+      ? categoryOverride
+      : await resolveTestCategory(testCategoryMode, provider);
+    if (categorySelection.cancelled) return;
+
     const mvnCmd = getMavenCommand(mavenHome);
     const workDir = provider.findPomDir(
       suite.suitePath,
@@ -345,7 +352,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
     if (mavenHome) {
       const bin = path.join(mavenHome, "bin");
-      env.PATH = `${bin};${env.PATH || ""}`;
+      env.PATH = `${bin}${path.delimiter}${env.PATH || ""}`;
       env.MAVEN_HOME = mavenHome;
     }
 
@@ -363,9 +370,7 @@ export function activate(context: vscode.ExtensionContext) {
       );
     }
 
-    const category = categoryOverride !== undefined
-      ? categoryOverride
-      : await resolveTestCategory(testCategoryMode, provider);
+    const category = categorySelection.value;
     if (category) {
       args.push(`-DtestCategory=${category}`);
     }
@@ -599,20 +604,20 @@ async function pickSuiteFromFolder(
 async function resolveTestCategory(
   mode: string,
   provider: TestngSuiteProvider
-): Promise<string | undefined> {
+): Promise<CategorySelection> {
   const normalized = mode.toLowerCase();
-  if (normalized === "all") return;
+  if (normalized === "all") return { cancelled: false };
   if (normalized === "value") {
     const config = vscode.workspace.getConfiguration("testngRunner");
     const value = (config.get<string>("testCategory") || "").trim();
-    return value || undefined;
+    return { cancelled: false, value: value || undefined };
   }
   return pickTestCategory(provider);
 }
 
 async function resolveBatchTestCategory(
   provider: TestngSuiteProvider
-): Promise<string | undefined> {
+): Promise<CategorySelection> {
   const config = vscode.workspace.getConfiguration("testngRunner");
   const mode = (config.get<string>("testCategoryMode") || "prompt").trim();
   return resolveTestCategory(mode, provider);
@@ -620,7 +625,7 @@ async function resolveBatchTestCategory(
 
 async function pickTestCategory(
   provider: TestngSuiteProvider
-): Promise<string | undefined> {
+): Promise<CategorySelection> {
   const categories = await detectTestCategories();
   const items: vscode.QuickPickItem[] = [];
   for (const c of categories) {
@@ -630,12 +635,14 @@ async function pickTestCategory(
     vscode.window.showWarningMessage(
       "No Test Categories detected. Set one in settings or add @Test(groups=...)."
     );
-    return;
+    return { cancelled: true };
   }
   const picked = await vscode.window.showQuickPick(items, {
     placeHolder: "Select a Test Category"
   });
-  return picked?.label;
+  return picked
+    ? { cancelled: false, value: picked.label }
+    : { cancelled: true };
 }
 
 async function detectTestCategories(): Promise<string[]> {
@@ -693,7 +700,7 @@ function buildEnv(mavenHome: string, javaHome: string): NodeJS.ProcessEnv {
   }
   if (mavenHome) {
     const bin = path.join(mavenHome, "bin");
-    env.PATH = `${bin};${env.PATH || ""}`;
+    env.PATH = `${bin}${path.delimiter}${env.PATH || ""}`;
     env.MAVEN_HOME = mavenHome;
   }
   return env;

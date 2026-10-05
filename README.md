@@ -23,16 +23,18 @@ Run TestNG suites from a simple VS Code UI without requiring users to work insid
 3. Select the generated `.vsix` file.
 
 ## Build `.vsix` From Source
-1. Install dependencies:
+1. Enter the extension folder and install its dependencies:
 ```bash
+cd vscode-extension
 npm install
 ```
-2. Package extension:
+2. Compile and package the extension:
 ```bash
-npx @vscode/vsce package
+npm run compile
+npm run package
 ```
 3. Output:
-- A file like `testng-runner-vscode-<version>.vsix` in the project root.
+- A file like `testng-runner-vscode-<version>.vsix` in `vscode-extension/`.
 
 ## Runtime Requirements
 - Windows 10/11
