@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.1.7 - 2026-10-06
+
+### Fixed
+- Replaced the Activity Bar icon with a scalable, themeable SVG version of the checklist and pencil logo.
+
 ## 0.1.6 - 2026-10-05
 
 ### Fixed
